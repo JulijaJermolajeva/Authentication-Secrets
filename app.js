@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema ({
   password: String,
   googleId: String,
   facebookId: String,
-  secret: String
+  secret: Array
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -171,34 +171,56 @@ app.get("/secrets", function(req, res){
   });
 });
 
-app.get("/submit", function(req, res){
+app.route("/submit")
+.get(function (req,res){
   if(req.isAuthenticated()){
-    res.render("submit");
-  } else {
+    User.findById(req.user.id,function (err,foundUser){
+      if(!err){
+        res.render("submit",{secrets:foundUser.secret});
+      }
+    })
+  }else {
     res.redirect("/login");
+  }
+})
+.post(function (req, res){
+  if(req.isAuthenticated()){
+    User.findById(req.user.id,function (err, user){
+      user.secret.push(req.body.secret);
+      user.save(function (){
+        res.redirect("/secrets");
+      });
+    });
+
+  }else {
+   res.redirect("/login");
   }
 });
 
-// My favourite colour is blue.
-
-app.post("/submit", function(req, res){
-  const submittedSecret = req.body.secret;
-
-  console.log(req.user._id);
-
-  User.findById(req.user._id, function(err, foundUser){
-    if(err){
-      console.log(err);
-    } else {
-      if(foundUser) {
-        foundUser.secret = submittedSecret;
-        foundUser.save(function(){
-          res.redirect("/secrets");
-        });
-      }
-    }
-  });
-});
+// OLD VERSION.
+// app.get("/submit", function(req, res){
+//   if(req.isAuthenticated()){
+//     res.render("submit");
+//   } else {
+//     res.redirect("/login");
+//   }
+// });
+//
+// app.post("/submit", function(req, res){
+//   console.log(req.user.id);
+//
+//   if(req.isAuthenticated()){
+//     User.findById(req.user.id, function(err, user){
+//       user.secret.push(req.body.secret);
+//       user.save(function(){
+//         res.redirect("/secrets");
+//       });
+//     });
+//
+//   } else {
+//     res.redirect("/login");
+//   }
+// });
 
 app.get("/logout", function(req, res){
   req.logout();
@@ -240,6 +262,21 @@ app.post("/login", function(req, res){
   });
 });
 
+// The handling of the new route "/submit/delete"
+app.post("/submit/delete",function (req, res){
+  if(req.isAuthenticated()){
+    User.findById(req.user.id, function (err,foundUser){
+      foundUser.secret.splice(foundUser.secret.indexOf(req.body.secret),1);
+      foundUser.save(function (err) {
+        if(!err){
+          res.redirect("/submit");
+        }
+      });
+    });
+  }else {
+    res.redirect("/login");
+  }
+});
 
 app.listen(3000, function(){
   console.log("Server started on port 3000.");
